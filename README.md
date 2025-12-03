@@ -146,23 +146,6 @@ Example of enabling SYN cookies:
 sudo sysctl -w net.ipv4.tcp_syncookies=1
 ~~~
 
----
-
-## 🗂 Suggested Repository Structure
-
-~~~text
-📁 SYN-Flood-Project
-│
-├── README.md                   # Documentation (this file)
-├── Report/
-│   └── SYN-Flood-Detailed-Report.docx
-├── Captures/
-│   └── attack_capture.pcap
-└── Screenshots/
-    └── *.png
-~~~
-
----
 
 ## 🎯 Conclusion
 
